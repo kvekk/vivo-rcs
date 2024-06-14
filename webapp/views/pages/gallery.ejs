@@ -1,0 +1,42 @@
+<div class="container mt-3 mb-4">
+    <h2 class="text-center">Gallery</h2>
+    <% if (metadata.length === 0) { %>
+        <p class="text-center">Your gallery is currently empty.</p>
+    <% } else { %>
+        <div class="row">
+            <% metadata.forEach(item => { %>
+                <div class="col-md-4 mb-3">
+                    <div class="card">
+                        <% if (item.fileType.startsWith('image')) { %>
+                            <img src="<%= item.fileUrl %>" class="card-img-top" alt="...">
+                        <% } else if (item.fileType === 'video/h264') { %>
+                            <video controls class="card-img-top">
+                                <source src="<%= item.fileUrl %>" type="video/mp4">
+                                Your browser does not support the video tag.
+                            </video>
+                        <% } else if (item.fileType.startsWith('video')) { %>
+                            <video controls class="card-img-top">
+                                <source src="<%= item.fileUrl %>" type="<%= item.fileType %>">
+                                Your browser does not support the video tag.
+                            </video>
+                        <% } %>
+                        <div class="card-body">
+                            <p class="card-text"><%= new Date(item.timestamp).toLocaleString() %></p>
+                            <p class="card-text"><strong>Filename:</strong> <%= item.originalFilename %></p>
+                            <div class="d-flex justify-content-end">
+                                <a href="/gallery/download/<%= item.id %>" class="btn btn-outline-primary btn-sm me-2">
+                                    <i class="fas fa-download"></i>
+                                </a>
+                                <form action="/gallery/delete/<%= item.id %>" method="POST" class="d-inline">
+                                    <button type="submit" class="btn btn-outline-danger btn-sm">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            <% }) %>
+        </div>
+    <% } %>
+</div>

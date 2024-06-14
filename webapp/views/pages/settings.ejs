@@ -1,0 +1,35 @@
+<div class="container mt-3 mb-4">
+    <h2 class="text-center">Settings</h2>
+    <form action="/settings" method="POST">
+        <div class="mb-3 mx-auto" style="max-width: 300px;">
+            <label for="speed" class="form-label">Speed</label>
+            <input type="range" class="form-range" id="speed" name="speed" min="20" max="100" step="10" value="<%= settings ? settings.speed : 20 %>" required oninput="document.getElementById('speedValue').innerText = this.value">
+            <span id="speedValue"><%= settings ? settings.speed : 20 %></span>
+        </div>
+        <div class="mb-3 mx-auto" style="max-width: 300px;">
+            <label for="steeringAngleStep" class="form-label">Steering Angle Step</label>
+            <input type="range" class="form-range" id="steeringAngleStep" name="steeringAngleStep" min="1" max="10" step="1" value="<%= settings ? settings.steeringAngleStep : 1 %>" required oninput="document.getElementById('steeringAngleStepValue').innerText = this.value">
+            <span id="steeringAngleStepValue"><%= settings ? settings.steeringAngleStep : 1 %></span>
+        </div>
+        <div class="mb-3 form-check mx-auto" style="max-width: 300px;">
+            <input type="checkbox" class="form-check-input" id="obstacleWarnings" name="obstacleWarnings" <%= settings && settings.obstacleWarnings ? 'checked' : '' %>>
+            <label class="form-check-label" for="obstacleWarnings">Track distance to an obstacle</label>
+        </div>
+        <div class="mb-3 mx-auto" style="max-width: 300px;">
+            <label for="raspberryPiIP" class="form-label">Raspberry Pi IP</label>
+            <input type="text" class="form-control" id="raspberryPiIP" name="raspberryPiIP" value="<%= settings ? settings.raspberryPiIP : process.env.RASPBERRY_PI_IP %>" required>
+        </div>
+        <div class="mb-3 mx-auto" style="max-width: 300px;">
+            <label for="raspberryPiPort" class="form-label">Raspberry Pi Port</label>
+            <input type="number" class="form-control" id="raspberryPiPort" name="raspberryPiPort" value="<%= settings ? settings.raspberryPiPort : process.env.RASPBERRY_PI_PORT %>" required>
+        </div>
+        <div class="mx-auto" style="max-width: 300px;">
+            <button type="submit" class="btn btn-primary w-100">Apply</button>
+        </div>
+    </form>
+</div>
+
+<script>
+    document.getElementById('speedValue').innerText = document.getElementById('speed').value;
+    document.getElementById('steeringAngleStepValue').innerText = document.getElementById('steeringAngleStep').value;
+</script>

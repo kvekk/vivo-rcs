@@ -1,0 +1,194 @@
+<div class="container mt-3 mb-4">
+    <div class="text-center">
+        <h2>Current Steering Angle: <span id="current-angle">N/A</span>°</h2>
+        <div id="video-container" class="position-relative mx-auto" style="max-width: 640px;">
+            <img id="stream" src="" alt="Live Stream" class="img-fluid border d-none mb-3">
+            <div id="no-connection" class="text-danger position-relative top-50 start-50 translate-middle mt-3">No video data available</div>
+        </div>
+    </div>
+
+    <div class="text-center d-flex justify-content-center">
+        <div class="d-flex flex-column align-items-center">
+            <button class="btn btn-secondary custom-button control-button" onclick="sendCommand('reset')">↺</button>
+            <div class="btn-group">
+                <button class="btn btn-secondary custom-button control-button" onmousedown="startAdjusting('left')" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()" onclick="sendCommand('left')" ontouchstart="startAdjusting('left')" ontouchend="stopAdjusting()">⬅️</button>
+                <button class="btn btn-secondary custom-button control-button" onmousedown="startAdjusting('right')" onmouseup="stopAdjusting()" onmouseleave="stopAdjusting()" onclick="sendCommand('right')" ontouchstart="startAdjusting('right')" ontouchend="stopAdjusting()">➡️</button>
+            </div>
+        </div>
+        <div class="d-flex flex-row align-items-center ms-5">
+            <button class="btn btn-secondary custom-button control-button" onclick="takePhoto()">📷</button>
+            <div class="btn-group-vertical ms-0">
+                <button class="btn btn-secondary custom-button control-button" onmousedown="startMoving('forward')" onmouseup="stopMoving()" ontouchstart="startMoving('forward')" ontouchend="stopMoving()">⬆️</button>
+                <button class="btn btn-secondary custom-button control-button" onmousedown="startMoving('backward')" onmouseup="stopMoving()" ontouchstart="startMoving('backward')" ontouchend="stopMoving()">⬇️</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="text-center mt-3">
+        <% if (obstacleWarnings) { %>
+            <p class="text-danger">Distance to an obstacle: <span id="obstacle-warning">N/A</span></p>
+        <% } %>
+        <p>You can use your keyboard to control the robot if you're a desktop user.</p>
+        <p>Use WASD keys to move. F key to reset the steering angle. Q key to take a photo.</p>
+    </div>
+    
+</div>
+
+<script>
+    const img = document.getElementById('stream');
+    const noConnectionMessage = document.getElementById('no-connection');
+    const currentAngleDisplay = document.getElementById('current-angle');
+    const obstacleWarning = document.getElementById('obstacle-warning');
+    let adjustInterval;
+    let currentMovement = null;
+
+    const raspberryPiIP = '<%= raspberryPiIP %>';
+    const raspberryPiPort = '<%= raspberryPiPort %>';
+    let obstacleWarnings = '<%= obstacleWarnings %>' === 'true';
+
+    async function updateImage() {
+        const timestamp = new Date().getTime();
+        const imageUrl = `http://${raspberryPiIP}:${raspberryPiPort}/image?${timestamp}`;
+        try {
+            const response = await fetch(imageUrl);
+            if (!response.ok) throw new Error('Network response was not ok');
+            const blob = await response.blob();
+            const objectURL = URL.createObjectURL(blob);
+            img.src = objectURL;
+            img.classList.remove('d-none');
+            noConnectionMessage.classList.add('d-none');
+        } catch (error) {
+            console.error('Error loading image:', error);
+            img.classList.add('d-none');
+            noConnectionMessage.classList.remove('d-none');
+        }
+    }
+
+    setInterval(updateImage, 50);
+
+    async function updateAngle() {
+        try {
+            const response = await fetch(`http://${raspberryPiIP}:${raspberryPiPort}/get_angle`);
+            const data = await response.json();
+            currentAngleDisplay.textContent = data.angle;
+        } catch (error) {
+            console.error('Error fetching angle:', error);
+        }
+    }
+
+    setInterval(updateAngle, 100); 
+
+    async function updateObstacleDistance() {
+        if (!obstacleWarnings) return;
+        try {
+            const response = await fetch(`http://${raspberryPiIP}:${raspberryPiPort}/get_distance`);
+            const data = await response.json();
+            obstacleWarning.textContent = data.distance == -1 ? 'N/A' : `~${data.distance} cm`;
+        } catch (error) {
+            console.error('Error fetching obstacle distance:', error);
+        }
+    }
+
+    setInterval(updateObstacleDistance, 500);
+
+    async function takePhoto() {
+        try {
+            const response = await fetch(`http://${raspberryPiIP}:${raspberryPiPort}/take_photo`, { method: 'POST' });
+            if (!response.ok) {
+                console.log('Failed to take a photo.');
+                return;
+            }
+            const blob = await response.blob();
+            const formData = new FormData();
+            const filename = `photo-${getFormattedDateTime()}.jpg`
+            formData.append('file', blob, filename);
+            
+            const uploadResponse = await fetch('/upload', {
+                method: 'POST',
+                body: formData
+            });
+
+            if (uploadResponse.ok) {
+                console.log('Photo taken and uploaded successfully!');
+            } else {
+                console.log('Failed to upload photo.');
+            }
+        } catch (error) {
+            console.error('Error taking photo:', error);
+            console.log('Error taking photo.');
+        }
+    }
+
+    async function sendCommand(command) {
+        try {
+            await fetch(`http://${raspberryPiIP}:${raspberryPiPort}/control`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: 'command=' + command
+            });
+            updateAngle();
+        } catch (error) {
+            console.error('Error sending command:', error);
+        }
+    }
+
+    function startAdjusting(direction) {
+        clearInterval(adjustInterval); 
+        adjustInterval = setInterval(() => {
+            sendCommand(direction);
+        }, 100);
+    }
+
+    function stopAdjusting() {
+        clearInterval(adjustInterval);
+    }
+
+    function startMoving(direction) {
+        clearInterval(adjustInterval); 
+        currentMovement = direction;
+        sendCommand(direction);
+    }
+
+    function stopMoving() {
+        clearInterval(adjustInterval);
+        currentMovement = null;
+        sendCommand('stop');
+    }
+
+    document.addEventListener('keydown', function(event) {
+        if (event.key === 'w') {
+            startMoving('forward');
+        } else if (event.key === 's') {
+            startMoving('backward');
+        } else if (event.key === 'a') {
+            startAdjusting('left');
+        } else if (event.key === 'd') {
+            startAdjusting('right');
+        } else if (event.key === 'f') {
+            sendCommand('reset');
+        } else if (event.key === 'q') {
+            takePhoto();
+        }
+    });
+
+    document.addEventListener('keyup', function(event) {
+        if (event.key === 'w' || event.key === 's') {
+            stopMoving();
+        } else if (event.key === 'a' || event.key === 'd') {
+            stopAdjusting();
+        }
+    });
+
+    function getFormattedDateTime() {
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = String(now.getMonth() + 1).padStart(2, '0');
+        const day = String(now.getDate()).padStart(2, '0');
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        const seconds = String(now.getSeconds()).padStart(2, '0');
+        return `${year}${month}${day}-${hours}${minutes}${seconds}`;
+    }
+</script>

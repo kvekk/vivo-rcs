@@ -9,7 +9,7 @@ from picar import front_wheels, back_wheels
 import pigpio
 
 class ObstacleDistanceDetector:
-    timeout = 0.05 
+    timeout = 0.05  # the timeout for detecting the echo
 
     def __init__(self, pi, gpio):
         self.pi = pi
@@ -20,9 +20,9 @@ class ObstacleDistanceDetector:
 
     def measure_distance(self):
         self.pi.write(self.gpio, 0)
-        time.sleep(0.01)  
+        time.sleep(0.01)
         self.pi.write(self.gpio, 1)
-        time.sleep(0.00001) 
+        time.sleep(0.00001)  # 10µs pulse
         self.pi.write(self.gpio, 0)
 
         self.pi.set_mode(self.gpio, pigpio.INPUT)
@@ -34,21 +34,21 @@ class ObstacleDistanceDetector:
         while self.pi.read(self.gpio) == 0:
             pulse_start = time.time()
             if pulse_start - timeout_start > self.timeout:
-                return -1 
+                return -1
 
         while self.pi.read(self.gpio) == 1:
             pulse_end = time.time()
             if pulse_end - timeout_start > self.timeout:
-                return -1  
+                return -1
 
         if pulse_start != 0 and pulse_end != 0:
             pulse_duration = pulse_end - pulse_start
-            distance = int(pulse_duration * 17150) 
+            distance = int(pulse_duration * 17150)
             if distance < 2 or distance > 100:
-                return -1 
+                return -1
             return distance
         else:
-            return -1 
+            return -1
 
     def get_distance(self, tries=4):
         distances = []
@@ -56,12 +56,12 @@ class ObstacleDistanceDetector:
             dist = self.measure_distance()
             if dist != -1:
                 distances.append(dist)
-            time.sleep(0.005) 
+            time.sleep(0.005)  # small delay between readings
 
         if distances:
             return sum(distances) // len(distances)
         else:
-            return -1 
+            return -1  # no valid readings
 
 class Camera:
     def __init__(self):
@@ -72,17 +72,18 @@ class Camera:
         self.picam2.start()
         self.frame = None
         self.lock = threading.Lock()
+        self.stop_event = threading.Event()
         self.thread = threading.Thread(target=self.update, daemon=True)
         self.thread.start()
 
     def update(self):
-        while not stop_event.is_set():
+        while not self.stop_event.is_set():
             buffer = io.BytesIO()
             self.picam2.capture_file(buffer, format="jpeg")
             buffer.seek(0)
             with self.lock:
                 self.frame = buffer.read()
-            time.sleep(0.04)
+            time.sleep(0.04)  # capture an image every 40ms
 
     def get_frame(self):
         with self.lock:
@@ -103,20 +104,18 @@ class Camera:
 
         return buffer
 
-
 pi = pigpio.pi()
 if not pi.connected:
     raise RuntimeError("pigpio daemon is not running. Please start it with 'sudo pigpiod'.")
 
-# PiCar setup
 picar.setup()
 fw = front_wheels.Front_Wheels(db='config')
 bw = back_wheels.Back_Wheels(db='config')
 fw.turning_max = 45
 
 speed = 70
-current_angle = 90 
-angle_step = 5  
+current_angle = 90
+angle_step = 5
 obstacle_warnings = False
 
 odd = ObstacleDistanceDetector(pi, 20)
@@ -134,12 +133,12 @@ def update_distance():
     while not stop_event.is_set():
         with distance_lock:
             distance_value = odd.get_distance()
-        time.sleep(0.5) 
+        time.sleep(0.5)
 
 distance_thread = None
 
 def start_distance_thread():
-    global distance_thread, stop_event
+    global distance_thread
     if distance_thread is None or not distance_thread.is_alive():
         stop_event.clear()
         distance_thread = threading.Thread(target=update_distance, daemon=True)
@@ -222,7 +221,8 @@ async def take_photo():
     return Response(photo.getvalue(), mimetype='image/jpeg')
 
 def cleanup():
-    stop_distance_thread() 
+    stop_distance_thread()
+    camera.stop_event.set()
     fw.turn(90)
     bw.stop()
     pi.stop()
@@ -239,7 +239,7 @@ async def shutdown():
 
 if __name__ == '__main__':
     try:
-        app.run(host='0.0.0.0', port=5000, debug=True)
+        app.run(host='0.0.0.0', port=5000)
     except KeyboardInterrupt:
         cleanup()
         print("Keyboard Interrupt: Wheels set to default angle (90), motors stopped, and pigpio daemon stopped.")

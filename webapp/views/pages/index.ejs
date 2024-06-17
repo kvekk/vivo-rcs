@@ -40,7 +40,7 @@
     const currentAngleDisplay = document.getElementById('current-angle');
     const obstacleWarning = document.getElementById('obstacle-warning');
     let adjustInterval;
-    let currentMovement = null;
+    let moveInterval;
 
     const raspberryPiIP = '<%= raspberryPiIP %>';
     const raspberryPiPort = '<%= raspberryPiPort %>';
@@ -146,18 +146,19 @@
     }
 
     function startMoving(direction) {
-        clearInterval(adjustInterval); 
-        currentMovement = direction;
-        sendCommand(direction);
+        clearInterval(moveInterval); 
+        moveInterval = setInterval(() => {
+            sendCommand(direction);
+        }, 100);
     }
 
     function stopMoving() {
-        clearInterval(adjustInterval);
-        currentMovement = null;
+        clearInterval(moveInterval);
         sendCommand('stop');
     }
 
     document.addEventListener('keydown', function(event) {
+        if (event.repeat) return;
         if (event.key === 'w') {
             startMoving('forward');
         } else if (event.key === 's') {

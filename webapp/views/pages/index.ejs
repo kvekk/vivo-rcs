@@ -54,6 +54,9 @@
             if (!response.ok) throw new Error('Network response was not ok');
             const blob = await response.blob();
             const objectURL = URL.createObjectURL(blob);
+            if (img.src) {
+                URL.revokeObjectURL(img.src);
+            }       
             img.src = objectURL;
             img.classList.remove('d-none');
             noConnectionMessage.classList.add('d-none');
@@ -64,7 +67,7 @@
         }
     }
 
-    setInterval(updateImage, 50);
+    setInterval(updateImage, 33);
 
     async function updateAngle() {
         try {

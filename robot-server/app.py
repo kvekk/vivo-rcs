@@ -83,7 +83,7 @@ class Camera:
             buffer.seek(0)
             with self.lock:
                 self.frame = buffer.read()
-            time.sleep(0.04)  # capture an image every 40ms
+            time.sleep(0.03)  # capture an image every 30ms
 
     def get_frame(self):
         with self.lock:
